@@ -15,4 +15,12 @@ export const envValidationSchema = Joi.object({
   JWT_EXPIRES_IN: Joi.string().default('7d'),
 
   CORS_ORIGIN: Joi.string().optional(),
+
+  MAIL_DRIVER: Joi.string().valid('smtp', 'console').default('console'),
+  SMTP_HOST: Joi.string().required(),
+  SMTP_PORT: Joi.number().port().default(587),
+  SMTP_SECURE: Joi.boolean().default(false),
+  SMTP_NAME: Joi.string().required(),
+  SMTP_EMAIL: Joi.string().email().required(),
+  SMTP_PASS: Joi.string().required(),
 });
