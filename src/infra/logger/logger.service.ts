@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, LoggerService as NestLoggerService } from '@nestjs/common';
 import pino, { Logger as PinoLogger, LoggerOptions } from 'pino';
 

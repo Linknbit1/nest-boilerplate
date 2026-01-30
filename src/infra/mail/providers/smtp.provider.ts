@@ -6,28 +6,30 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class SmtpMailProvider {
-  private transporter: Transporter<SMTPTransport.SentMessageInfo>;
+  private readonly transporter: Transporter<SMTPTransport.SentMessageInfo>;
 
   constructor(private readonly config: ConfigService) {
     const host = this.config.get<string>('smtp.host');
-    const port = this.config.get<string>('smtp.port');
-    const secure = this.config.get<string>('smtp.secure');
+    const port = this.config.get<number>('smtp.port');
+    const secure = this.config.get<boolean>('smtp.secure');
     const email = this.config.get<string>('smtp.email');
     const password = this.config.get<string>('smtp.pass');
+    const service = this.config.get<string>('smtp.service');
 
     const options: SMTPTransport.Options = {
       host: host,
-      port: Number(port ?? 587),
-      secure: secure === 'true',
+      port: port,
+      secure: secure,
       auth: email && password ? { user: email, pass: password } : undefined,
+      service: service,
     };
 
     this.transporter = createTransport(options);
   }
 
   async send({ to, subject, html, text }: SendMailInput) {
-    const name = this.config.get<string>('smtp.name');
     const email = this.config.get<string>('smtp.email');
+    const name = this.config.get<string>('smtp.name');
 
     return await this.transporter.sendMail({
       from: `${name} <${email}>`,
