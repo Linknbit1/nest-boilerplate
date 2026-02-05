@@ -13,16 +13,13 @@ export class SmtpMailProvider {
     const port = this.config.get<number>('smtp.port');
     const secure = this.config.get<boolean>('smtp.secure');
     const email = this.config.get<string>('smtp.email');
-    const password = this.config.get<string>('smtp.pass');
+    const user = this.config.get<string>('smtp.user');
+    const pass = this.config.get<string>('smtp.pass');
     const service = this.config.get<string>('smtp.service');
 
-    const options: SMTPTransport.Options = {
-      host: host,
-      port: port,
-      secure: secure,
-      auth: email && password ? { user: email, pass: password } : undefined,
-      service: service,
-    };
+    const options: SMTPTransport.Options = service
+      ? { service, auth: { user, pass: pass } }
+      : { host, port, secure, auth: { user: email, pass } };
 
     this.transporter = createTransport(options);
   }
