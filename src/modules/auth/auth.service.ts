@@ -1,11 +1,14 @@
+import crypto from 'crypto';
 import {
   BadRequestException,
+  ForbiddenException,
+  GoneException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { RegisterDto } from './dto/register.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
 import { generateVerificationToken } from './utils/verification-token.util';
 import { MailService } from 'src/infra/mail/mail.service';
@@ -14,6 +17,7 @@ import { LoggerService } from 'src/infra/logger/logger.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { JwtService } from '@nestjs/jwt';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @Injectable()
 export class AuthService {
@@ -98,18 +102,52 @@ export class AuthService {
     if (!email || !password) {
       throw new BadRequestException('Email and password are required');
     }
+
     const user = await this.prisma.client.user.findUnique({
       where: { email },
     });
 
-    if (!user) {
-      throw new BadRequestException('Invalid email or password');
-    }
+    if (!user) throw new BadRequestException('Invalid email or password');
 
     const passwordValid = await argon2.verify(user.password, password);
-
-    if (!passwordValid) {
+    if (!passwordValid)
       throw new BadRequestException('Invalid email or password');
+
+    if (!user.verifiedAt) {
+      const { plainToken, hashedToken, expiresAt } =
+        generateVerificationToken();
+
+      await this.prisma.client.user.update({
+        where: { id: user.id },
+        data: {
+          verificationTokenHash: hashedToken,
+          verificationExpires: expiresAt,
+        },
+      });
+
+      try {
+        const mode = this.configService.get<string>(
+          'auth.email_verification_mode',
+        );
+
+        await this.mailService.sendMail({
+          to: user.email,
+          subject: 'Verify your email',
+          text:
+            mode === 'token'
+              ? `Click the link to verify: ${this.configService.getOrThrow<string>('app.url')}/verify-email?token=${plainToken}`
+              : `Your verification code is ${plainToken}`,
+        });
+      } catch (error) {
+        this.loggerService.error(`Failed to send verification email`, error);
+        throw new InternalServerErrorException(
+          'Could not send verification email. Try again later.',
+        );
+      }
+
+      throw new ForbiddenException(
+        'Email not verified. We sent you a new verification message.',
+      );
     }
 
     const payload: JwtPayload = {
@@ -123,19 +161,54 @@ export class AuthService {
     return { access_token, user };
   }
 
-  findAll() {
-    return `This action returns all auth`;
-  }
+  async verifyEmail(verifyEmailDto: VerifyEmailDto) {
+    const { token } = verifyEmailDto;
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
+    if (!token?.trim()) {
+      throw new BadRequestException('Verification token is required');
+    }
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token.trim())
+      .digest('hex');
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+    const user = await this.prisma.client.user.findFirst({
+      where: {
+        verificationTokenHash: hashedToken,
+      },
+      select: {
+        id: true,
+        verifiedAt: true,
+        verificationExpires: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Invalid verification token');
+    }
+
+    if (user.verifiedAt) {
+      return { message: 'Email already verified' };
+    }
+
+    if (!user.verificationExpires) {
+      throw new BadRequestException('Verification token is not active');
+    }
+
+    if (user.verificationExpires.getTime() < Date.now()) {
+      throw new GoneException('Verification token expired');
+    }
+
+    await this.prisma.client.user.update({
+      where: { id: user.id },
+      data: {
+        verifiedAt: new Date(),
+        verificationTokenHash: null,
+        verificationExpires: null,
+      },
+    });
+
+    return { message: 'Email verified successfully' };
   }
 }
