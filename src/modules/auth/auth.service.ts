@@ -247,7 +247,8 @@ export class AuthService {
       return { message: 'If that email exists, we sent reset instructions.' };
     }
 
-    const { plainToken, hashedToken, expiresAt } = generateVerificationToken();
+    const { plainToken, hashedToken, expiresAt } =
+      this.generateVerificationToken();
 
     await this.prisma.client.user.update({
       where: { id: user.id },
