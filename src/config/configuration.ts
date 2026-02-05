@@ -15,6 +15,10 @@ export default () => ({
     secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
     email_verification_mode: process.env.EMAIL_VERIFICATION_MODE || 'otp',
+    email_verification_expiry_minutes: parseInt(
+      process.env.EMAIL_VERIFICATION_EXPIRY_MINUTES ?? '15',
+      10,
+    ),
   },
 
   cors: {

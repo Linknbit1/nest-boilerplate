@@ -21,6 +21,7 @@ export const envValidationSchema = Joi.object({
   JWT_SECRET: Joi.string().min(16).required(),
   JWT_EXPIRES_IN: Joi.string().default('7d'),
   EMAIL_VERIFICATION_MODE: Joi.string().valid('otp', 'token').default('otp'),
+  EMAIL_VERIFICATION_EXPIRY_MINUTES: Joi.number().default(15),
 
   // SMTP
   MAIL_DRIVER: Joi.string().valid('smtp', 'console').default('console'),

@@ -1,8 +1,6 @@
 import crypto from 'crypto';
 
-export function generateVerificationToken() {
-  const mode = process.env.EMAIL_VERIFICATION_MODE ?? 'otp';
-
+export function generateVerificationToken(mode?: string, expiry: number = 15) {
   let plainToken: string;
 
   if (mode === 'token') {
@@ -17,14 +15,15 @@ export function generateVerificationToken() {
     .update(plainToken)
     .digest('hex');
 
-  const expiresAt = new Date(
-    Date.now() +
-      Number(process.env.EMAIL_VERIFICATION_EXPIRY_MINUTES ?? 15) * 60 * 1000,
-  );
+  const expiresAt = new Date(Date.now() + expiry * 60 * 1000);
 
   return {
     plainToken,
     hashedToken,
     expiresAt,
   };
+}
+
+export function hashToken(raw: string) {
+  return crypto.createHash('sha256').update(raw.trim()).digest('hex');
 }
