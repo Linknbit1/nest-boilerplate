@@ -11,6 +11,9 @@ import { generateVerificationToken } from './utils/verification-token.util';
 import { MailService } from 'src/infra/mail/mail.service';
 import { ConfigService } from '@nestjs/config';
 import { LoggerService } from 'src/infra/logger/logger.service';
+import { LoginDto } from './dto/login.dto';
+import { JwtPayload } from './types/jwt-payload.type';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +22,7 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
     private readonly loggerService: LoggerService,
+    private readonly jwt: JwtService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -86,6 +90,37 @@ export class AuthService {
         'There was an error sending the email. Try again later.',
       );
     }
+  }
+
+  async login(loginDto: LoginDto) {
+    const { email, password } = loginDto;
+
+    if (!email || !password) {
+      throw new BadRequestException('Email and password are required');
+    }
+    const user = await this.prisma.client.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid email or password');
+    }
+
+    const passwordValid = await argon2.verify(user.password, password);
+
+    if (!passwordValid) {
+      throw new BadRequestException('Invalid email or password');
+    }
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const access_token = await this.jwt.signAsync(payload);
+
+    return { access_token, user };
   }
 
   findAll() {
